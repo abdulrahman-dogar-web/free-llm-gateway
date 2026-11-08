@@ -1,0 +1,16 @@
+# Local configuration — contains your real provider API keys. NEVER commit.
+config.json
+.env
+
+# Local runtime data — unified keys (hashed), usage logs, provider state.
+data/
+
+# Dependencies
+node_modules/
+
+# OS / editor artefacts
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

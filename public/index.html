@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Free LLM Gateway — Dashboard</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">⬢</div>
+    <div>
+      <h1>Free LLM Gateway</h1>
+      <p>One key. Every provider. Automatic fallback.</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span id="health-pill" class="pill">Checking…</span>
+    <button class="btn btn-ghost" id="refresh-btn" type="button">↻ Refresh</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section id="setup-banner" class="banner hidden" aria-live="polite"></section>
+
+  <section class="stats" aria-label="Usage totals">
+    <div class="stat"><span class="stat-label">Total requests</span><span class="stat-value" id="stat-requests">0</span></div>
+    <div class="stat"><span class="stat-label">Total tokens</span><span class="stat-value" id="stat-tokens">0</span></div>
+    <div class="stat"><span class="stat-label">Prompt / completion</span><span class="stat-value small" id="stat-split">0 / 0</span></div>
+    <div class="stat"><span class="stat-label">Errors</span><span class="stat-value" id="stat-errors">0</span></div>
+    <div class="stat"><span class="stat-label">Providers up</span><span class="stat-value" id="stat-providers">0 / 0</span></div>
+  </section>
+
+  <div class="grid">
+    <section class="card" id="providers-card">
+      <div class="card-head">
+        <h2>Providers</h2>
+        <span class="muted">OpenAI-compatible · keys stay on this machine</span>
+      </div>
+      <div id="provider-list" class="provider-list"></div>
+
+      <h3 class="subhead">Add a provider</h3>
+      <form id="add-provider-form" class="form">
+        <label>Preset
+          <select id="preset-select"></select>
+        </label>
+        <div class="form-row">
+          <label>Name <input id="p-name" required placeholder="Groq" autocomplete="off"></label>
+          <label>ID <input id="p-id" required placeholder="groq" autocomplete="off" pattern="[a-z0-9_-]+"></label>
+        </div>
+        <label>Base URL <input id="p-base" required placeholder="https://api.groq.com/openai/v1" autocomplete="off"></label>
+        <label>API key <input id="p-key" type="password" required placeholder="gsk_…" autocomplete="off"></label>
+        <label>Models (comma separated)
+          <input id="p-models" placeholder="llama-3.3-70b-versatile, llama-3.1-8b-instant" autocomplete="off">
+        </label>
+        <p class="hint">For Cloudflare Workers AI, put your account ID in the base URL: <code>https://api.cloudflare.com/client/v4/accounts/&lt;ACCOUNT_ID&gt;/ai/v1</code></p>
+        <button class="btn btn-primary" type="submit">Add provider</button>
+        <p class="form-msg" id="add-provider-msg" role="status"></p>
+      </form>
+    </section>
+
+    <section class="card" id="keys-card">
+      <div class="card-head">
+        <h2>Unified API key</h2>
+        <span class="muted">Clients use this — never a provider key</span>
+      </div>
+      <div id="key-once" class="key-once hidden" aria-live="polite">
+        <strong>Copy this key now — it is shown once and cannot be retrieved again.</strong>
+        <div class="key-once-row">
+          <code id="key-once-value"></code>
+          <button class="btn btn-small" id="key-once-copy" type="button">Copy</button>
+        </div>
+      </div>
+      <form id="new-key-form" class="form-row">
+        <label class="grow">Key name <input id="key-name" placeholder="Default key" autocomplete="off"></label>
+        <button class="btn btn-primary" type="submit">Generate key</button>
+      </form>
+      <ul id="key-list" class="key-list"></ul>
+      <h3 class="subhead">Use it</h3>
+      <pre class="code-block" id="curl-example">curl http://localhost:8787/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_UNIFIED_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": "Hello!"}]}'</pre>
+      <p class="hint">Point any OpenAI-compatible client at <code>http://localhost:8787/v1</code> with this key as the API key.</p>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <div class="card-head"><h2>Model routing &amp; fallback</h2><span class="muted">First provider is tried first</span></div>
+      <p class="hint">If a model has no explicit route, the gateway tries every enabled provider that lists it, in the default fallback order below. A 429 / quota error cools that provider down and the next one is tried automatically.</p>
+      <div id="routes-list"></div>
+      <form id="route-form" class="form-row">
+        <label class="grow">Model <input id="route-model" required placeholder="llama-3.3-70b-versatile" autocomplete="off"></label>
+        <label class="grow">Providers in order (comma separated IDs) <input id="route-providers" required placeholder="groq, together, openrouter" autocomplete="off"></label>
+        <button class="btn" type="submit">Save route</button>
+      </form>
+      <label class="form-label">Default fallback order
+        <input id="default-fallback" placeholder="groq, openrouter, together, mistral, gemini" autocomplete="off">
+      </label>
+      <label class="form-label">Default model
+        <input id="default-model" placeholder="llama-3.3-70b-versatile" autocomplete="off">
+      </label>
+      <button class="btn" id="save-routing-btn" type="button">Save routing settings</button>
+      <p class="form-msg" id="routing-msg" role="status"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Test a request</h2><span class="muted">Goes through the gateway router</span></div>
+      <form id="test-form" class="form">
+        <label>Model
+          <select id="test-model"></select>
+        </label>
+        <label>Prompt
+          <textarea id="test-prompt" rows="3" required>Explain what a self-hosted LLM gateway does, in one sentence.</textarea>
+        </label>
+        <button class="btn btn-primary" type="submit">Send test request</button>
+      </form>
+      <div id="test-result" class="test-result hidden" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head"><h2>Usage</h2><span class="muted" id="usage-note"></span></div>
+    <div class="usage-tables">
+      <div>
+        <h3 class="subhead">Per provider</h3>
+        <table class="table"><thead><tr><th>Provider</th><th>Requests</th><th>Tokens</th><th>Errors</th></tr></thead><tbody id="usage-by-provider"></tbody></table>
+      </div>
+      <div>
+        <h3 class="subhead">Per model</h3>
+        <table class="table"><thead><tr><th>Model</th><th>Requests</th><th>Tokens</th><th>Errors</th></tr></thead><tbody id="usage-by-model"></tbody></table>
+      </div>
+    </div>
+    <h3 class="subhead">Recent requests</h3>
+    <div class="table-wrap">
+      <table class="table"><thead><tr><th>Time</th><th>Model</th><th>Provider</th><th>Tokens</th><th>Latency</th><th>Status</th></tr></thead><tbody id="usage-recent"></tbody></table>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <p>Free LLM Gateway runs entirely on this machine. Provider keys and usage logs are stored locally in <code>data/</code> and <code>config.json</code> — never commit those files. This gateway gives you no free tokens itself: you bring your own provider keys.</p>
+  </footer>
+</main>
+
+<script src="/dashboard.js"></script>
+</body>
+</html>
