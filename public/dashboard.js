@@ -43,6 +43,12 @@ function copyText(text, btn) {
 async function load() {
   state = await api('/api/status');
   render();
+  // Show this deployment's own base URL instead of the localhost example.
+  const origin = window.location.origin;
+  const ce = $('curl-example');
+  if (ce) ce.textContent = ce.textContent.replace('http://localhost:8787', origin);
+  const ab = $('api-base-url');
+  if (ab) ab.textContent = origin + '/v1';
 }
 
 function render() {
@@ -148,7 +154,7 @@ function renderKeys() {
 function showOnceKey(key) {
   $('key-once-value').textContent = key;
   $('key-once').classList.remove('hidden');
-  $('curl-example').textContent = `curl http://localhost:8787/v1/chat/completions \\\n  -H "Authorization: Bearer ${key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model": "${state.settings.defaultModel || 'llama-3.3-70b-versatile'}", "messages": [{"role": "user", "content": "Hello!"}]}'`;
+  $('curl-example').textContent = `curl ${window.location.origin}/v1/chat/completions \\\n  -H "Authorization: Bearer ${key}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model": "${state.settings.defaultModel || 'llama-3.3-70b-versatile'}", "messages": [{"role": "user", "content": "Hello!"}]}'`;
   $('key-once').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 

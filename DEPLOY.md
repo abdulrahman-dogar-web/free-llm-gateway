@@ -12,8 +12,8 @@ The gateway is deployed on Vercel from this repo:
 starting a listening server), `vercel.json` routes every path to it, and
 the dashboard in `public/` is served as static files.
 
-**Live URL:** set after the first deploy (see below) — check `/health`
-for `{"status":"ok"}`.
+**Live URL:** https://free-llm-gateway-tahqeeq.vercel.app/ — check `/health`
+for `{"status":"ok"}`. Dashboard at `/`, API at `/v1`.
 
 ### Environment variables (set in Vercel → Project → Settings → Environment Variables)
 
