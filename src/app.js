@@ -319,7 +319,11 @@ async function handleApi(req, res, pathname) {
 }
 
 // ---- Server --------------------------------------------------------------
-const server = http.createServer(async (req, res) => {
+// The request handler is a named function so serverless adapters (Vercel)
+// can reuse it without starting a listening server. Local runs still
+// listen on HOST:PORT below — except on Vercel, where the platform
+// invokes the handler directly (process.env.VERCEL is set there).
+async function handleRequest(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   const url = new URL(req.url, 'http://localhost');
@@ -351,9 +355,11 @@ const server = http.createServer(async (req, res) => {
     console.error(err);
     if (!res.headersSent) sendJson(res, 500, { error: 'Internal server error', detail: err.message });
   }
-});
+}
 
-server.listen(PORT, HOST, () => {
+const server = http.createServer(handleRequest);
+
+if (!process.env.VERCEL) server.listen(PORT, HOST, () => {
   const usable = store.data.providers.filter(isUsable);
   console.log('');
   console.log('  Free LLM Gateway — self-hosted unified LLM router');
@@ -367,4 +373,4 @@ server.listen(PORT, HOST, () => {
   console.log('');
 });
 
-export { server, store };
+export { server, store, handleRequest };

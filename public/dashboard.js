@@ -17,8 +17,20 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleString();
 }
 async function api(path, opts = {}) {
-  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  // On a hosted deployment the admin API is protected by ADMIN_TOKEN.
+  // The dashboard asks for it once and keeps it in sessionStorage.
+  const adminToken = sessionStorage.getItem('flg-admin-token');
+  if (adminToken) headers['x-admin-token'] = adminToken;
+  const res = await fetch(path, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && /admin token/i.test(data.error || '') && !opts._retried) {
+    const t = prompt('Admin token required for this gateway dashboard (the ADMIN_TOKEN set on the deployment):');
+    if (t && t.trim()) {
+      sessionStorage.setItem('flg-admin-token', t.trim());
+      return api(path, { ...opts, _retried: true });
+    }
+  }
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
